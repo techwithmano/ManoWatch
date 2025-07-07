@@ -2,7 +2,6 @@
 import { useRef } from 'react';
 import { CardContent } from '@/components/ui/card';
 import Toolbar from './Toolbar';
-import BackendSetup from './BackendSetup';
 import { useSharedBrowser } from '@/hooks/useSharedBrowser';
 
 type SharedBrowserProps = {
@@ -47,12 +46,6 @@ export default function SharedBrowser({ sessionId }: SharedBrowserProps) {
           sandbox="allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts"
           onLoad={handleIframeLoad}
         ></iframe>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background to-transparent pointer-events-none">
-          <div className="pointer-events-auto">
-            <BackendSetup />
-          </div>
-        </div>
       </CardContent>
     </div>
   );
