@@ -14,7 +14,6 @@ import {
   query,
 } from 'firebase/firestore';
 import type { User } from '@/components/collab-surf/types';
-import { useChat } from './useChat';
 
 const servers = {
   iceServers: [
@@ -33,9 +32,9 @@ export type RemoteStream = {
 export function useWebRTC(sessionId: string, user: User) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<RemoteStream[]>([]);
+  const [allParticipants, setAllParticipants] = useState<User[]>([]);
   const [isMuted, setIsMuted] = useState(true);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const { allParticipants } = useChat(sessionId, user);
   const cleanupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const toggleMute = useCallback(() => {
@@ -46,6 +45,18 @@ export function useWebRTC(sessionId: string, user: User) {
       setIsMuted(prev => !prev);
     }
   }, [localStream]);
+
+  // Participant presence listener
+  useEffect(() => {
+    if (!sessionId) return;
+    const peersRef = collection(db, 'sessions', sessionId, 'peers');
+    const unsubscribe = onSnapshot(peersRef, (snapshot) => {
+      const currentParticipants = snapshot.docs.map(doc => doc.data() as User);
+      setAllParticipants(currentParticipants);
+    });
+    return () => unsubscribe();
+  }, [sessionId]);
+
 
   const handleEndConnection = useCallback(async (peerId: string) => {
     peerConnections.current.get(peerId)?.close();
@@ -68,10 +79,14 @@ export function useWebRTC(sessionId: string, user: User) {
 
     pc.ontrack = (event) => {
       setRemoteStreams(prev => {
-        if (!prev.some(s => s.peerId === peerId)) {
-          return [...prev, { peerId, stream: event.streams[0] }];
+        const existingStream = prev.find(s => s.peerId === peerId);
+        if (existingStream) {
+            if(existingStream.stream.id !== event.streams[0].id){
+                return prev.map(s => s.peerId === peerId ? { ...s, stream: event.streams[0] } : s);
+            }
+            return prev;
         }
-        return prev;
+        return [...prev, { peerId, stream: event.streams[0] }];
       });
     };
 
@@ -137,7 +152,9 @@ export function useWebRTC(sessionId: string, user: User) {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           const answerRef = doc(db, 'sessions', sessionId, 'peers', from, 'answers', user.id);
-          await setDoc(answerRef, { from: user.id, answer: answer.toJSON() });
+          if(pc.localDescription){
+            await setDoc(answerRef, { from: user.id, answer: pc.localDescription.toJSON() });
+          }
           await deleteDoc(change.doc.ref);
         }
       });
@@ -174,15 +191,27 @@ export function useWebRTC(sessionId: string, user: User) {
     });
 
     const cleanup = async () => {
-      const myDoc = doc(db, 'sessions', sessionId, 'peers', user.id);
-      const collections = ['offers', 'answers', 'iceCandidates'];
-      const batch = writeBatch(db);
-      for (const c of collections) {
-        const snapshot = await getDocs(collection(myDoc, c));
-        snapshot.forEach((doc) => batch.delete(doc.ref));
-      }
-      await batch.commit();
-      await deleteDoc(myDoc);
+        if (!sessionId || !user.id) return;
+
+        const myDoc = doc(db, 'sessions', sessionId, 'peers', user.id);
+        const collections = ['offers', 'answers', 'iceCandidates'];
+        const batch = writeBatch(db);
+        for (const c of collections) {
+            const snapshot = await getDocs(collection(myDoc, c));
+            snapshot.forEach((doc) => batch.delete(doc.ref));
+        }
+        await batch.commit().catch(err => console.error("Error in subcollection cleanup", err));
+        await deleteDoc(myDoc).catch(err => console.error("Error in peer doc cleanup", err));
+
+        // If I am the last one, delete the chat messages too
+        const peersSnapshot = await getDocs(collection(db, 'sessions', sessionId, 'peers'));
+        if (peersSnapshot.empty) {
+            const messagesRef = collection(db, 'sessions', sessionId, 'messages');
+            const messagesSnapshot = await getDocs(messagesRef);
+            const chatBatch = writeBatch(db);
+            messagesSnapshot.forEach(doc => chatBatch.delete(doc.ref));
+            await chatBatch.commit().catch(err => console.error("Error clearing chat", err));
+        }
     };
 
     const handleBeforeUnload = () => {
@@ -196,7 +225,6 @@ export function useWebRTC(sessionId: string, user: User) {
       unsubIce();
       window.removeEventListener('beforeunload', handleBeforeUnload);
 
-      // Delay the database cleanup to avoid strict mode issues
       cleanupTimeoutRef.current = setTimeout(() => {
         cleanup();
         peerConnections.current.forEach(pc => pc.close());
@@ -212,22 +240,26 @@ export function useWebRTC(sessionId: string, user: User) {
     const otherParticipants = allParticipants.filter(p => p.id !== user.id);
     const connectedPeers = new Set(peerConnections.current.keys());
 
+    // Call new peers
     otherParticipants.forEach(p => {
       if (!connectedPeers.has(p.id) && user.id > p.id) {
         const pc = createPeerConnection(p.id);
-        pc.createOffer()
-          .then(offer => pc.setLocalDescription(offer))
-          .then(() => {
-            if (!pc.localDescription) {
-              throw new Error("Failed to create offer: localDescription is null");
-            }
-            const offerRef = doc(db, 'sessions', sessionId, 'peers', p.id, 'offers', user.id);
-            setDoc(offerRef, { from: user.id, offer: pc.localDescription.toJSON() });
-          })
-          .catch(e => console.error("Error creating offer:", e));
+        if (pc.signalingState === 'stable') {
+            pc.createOffer()
+            .then(offer => pc.setLocalDescription(offer))
+            .then(() => {
+                if (!pc.localDescription) {
+                throw new Error("Failed to create offer: localDescription is null");
+                }
+                const offerRef = doc(db, 'sessions', sessionId, 'peers', p.id, 'offers', user.id);
+                setDoc(offerRef, { from: user.id, offer: pc.localDescription.toJSON() });
+            })
+            .catch(e => console.error("Error creating offer:", e));
+        }
       }
     });
 
+    // Remove disconnected peers
     connectedPeers.forEach(peerId => {
         if (!otherParticipants.some(p => p.id === peerId)) {
             handleEndConnection(peerId);
@@ -236,5 +268,5 @@ export function useWebRTC(sessionId: string, user: User) {
 
   }, [allParticipants, localStream, user.id, sessionId, createPeerConnection, handleEndConnection]);
 
-  return { remoteStreams, isMuted, toggleMute };
+  return { remoteStreams, allParticipants, isMuted, toggleMute };
 }
