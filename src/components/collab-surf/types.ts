@@ -12,3 +12,8 @@ export type Message = {
 export type BrowserState = {
   url: string;
 };
+
+export type Participant = {
+    id: string;
+    name: string;
+}
