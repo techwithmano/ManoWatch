@@ -24,10 +24,10 @@ export default function Chat({ user, sessionId, browserState }: ChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const [isProcessingAi, setIsProcessingAi] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const { messages, participants, sendMessage } = useChat(sessionId, user);
+  const { messages, allParticipants: participants, sendMessage } = useChat(sessionId, user);
   const { toast } = useToast();
 
-  const allParticipants = Array.from(new Map([user, ...participants].map(p => [p.id, p])).values());
+  const allParticipants = [...participants];
   const aiParticipantIsActive = messages.some(m => m.author.id === AI_USER.id);
   if(aiParticipantIsActive && !allParticipants.some(p => p.id === AI_USER.id)) {
     allParticipants.push(AI_USER);

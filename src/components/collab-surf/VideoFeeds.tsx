@@ -12,9 +12,7 @@ type ParticipantListProps = {
 };
 
 export default function ParticipantList({ user, sessionId }: ParticipantListProps) {
-  const { participants } = useChat(sessionId, user);
-
-  const allParticipants = Array.from(new Map([user, ...participants].map(p => [p.id, p])).values());
+  const { allParticipants } = useChat(sessionId, user);
 
   return (
     <div className="flex items-center gap-4 p-2 rounded-lg bg-card border">

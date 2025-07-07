@@ -6,6 +6,7 @@ import SharedBrowser from './SharedBrowser';
 import type { User } from './types';
 import { useSharedBrowser } from '@/hooks/useSharedBrowser';
 import ParticipantList from './VideoFeeds';
+import AudioPeers from './AudioPeers';
 
 type CollabSurfProps = {
   user: User;
@@ -24,6 +25,7 @@ export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
           browserState={browserState}
           navigate={navigate}
         />
+        <AudioPeers user={user} sessionId={sessionId} />
       </main>
       <aside className="w-80 lg:w-96 bg-card border-l p-4 flex-col hidden md:flex">
         <Chat user={user} sessionId={sessionId} browserState={browserState} />

@@ -9,7 +9,7 @@ import {
   query,
   serverTimestamp,
 } from 'firebase/firestore';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export function useChat(sessionId: string, user: User) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,11 +32,16 @@ export function useChat(sessionId: string, user: User) {
 
       const allAuthors = fetchedMessages.map((m) => m.author);
       const uniqueParticipants = Array.from(new Map(allAuthors.map(p => [p.id, p])).values());
-      setParticipants(uniqueParticipants);
+      setParticipants(uniqueParticipants.filter(p => p.id !== user.id));
     });
 
     return () => unsubscribe();
-  }, [sessionId]);
+  }, [sessionId, user.id]);
+
+  const allParticipants = useMemo(() => {
+    return Array.from(new Map([user, ...participants].map(p => [p.id, p])).values());
+  }, [user, participants]);
+
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -51,5 +56,5 @@ export function useChat(sessionId: string, user: User) {
     [sessionId, user]
   );
 
-  return { messages, participants, sendMessage };
+  return { messages, participants, allParticipants, sendMessage };
 }
