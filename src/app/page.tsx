@@ -5,13 +5,13 @@ import CollabSurf from '@/components/collab-surf/CollabSurf';
 import NameInputForm from '@/components/collab-surf/NameInputForm';
 import type { User } from '@/components/collab-surf/types';
 
-const SESSION_STORAGE_KEY = 'watch-party-user';
+const LOCAL_STORAGE_KEY = 'watch-party-user';
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const savedUserJson = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const savedUserJson = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (savedUserJson) {
       try {
         const savedUser = JSON.parse(savedUserJson);
@@ -19,15 +19,15 @@ export default function Home() {
           setUser(savedUser);
         }
       } catch (e) {
-        console.error('Failed to parse user from session storage', e);
-        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        console.error('Failed to parse user from local storage', e);
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
     }
   }, []);
 
   const handleJoin = (name: string) => {
     const newUser = { name, id: crypto.randomUUID() };
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(newUser));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newUser));
     setUser(newUser);
   };
 
