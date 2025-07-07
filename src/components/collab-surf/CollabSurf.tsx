@@ -5,7 +5,7 @@ import Chat from './Chat';
 import SharedBrowser from './SharedBrowser';
 import type { User } from './types';
 import { useSharedBrowser } from '@/hooks/useSharedBrowser';
-import VideoFeeds from './VideoFeeds';
+import ParticipantList from './VideoFeeds';
 
 type CollabSurfProps = {
   user: User;
@@ -18,7 +18,7 @@ export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
   return (
     <div className="flex h-screen w-full bg-background font-body">
       <main className="flex-1 flex flex-col p-2 md:p-4 gap-4 overflow-hidden">
-        <VideoFeeds user={user} sessionId={sessionId} />
+        <ParticipantList user={user} sessionId={sessionId} />
         <SharedBrowser
           sessionId={sessionId}
           browserState={browserState}
