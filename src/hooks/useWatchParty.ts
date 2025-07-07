@@ -7,6 +7,7 @@ import {
   onSnapshot,
   setDoc,
   serverTimestamp,
+  runTransaction,
 } from 'firebase/firestore';
 import type { PlayerState } from '@/components/collab-surf/types';
 
@@ -21,22 +22,34 @@ export function useWatchParty(sessionId: string, userId: string, setIsHost: (isH
   const [hostId, setHostId] = useState<string | null>(null);
   
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !userId) return;
     const sessionRef = doc(db, 'sessions', sessionId);
 
     const unsubscribe = onSnapshot(sessionRef, async (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
-        const currentHostId = data.hostId;
-        setHostId(currentHostId);
+        let currentHostId = data.hostId;
 
-        // Determine host
+        // If no host is assigned, try to become the host atomically
         if (!currentHostId) {
-          await setDoc(sessionRef, { hostId: userId }, { merge: true });
-          setIsHost(true);
-        } else {
-          setIsHost(currentHostId === userId);
+          try {
+            await runTransaction(db, async (transaction) => {
+              const freshDoc = await transaction.get(sessionRef);
+              if (freshDoc.exists() && !freshDoc.data().hostId) {
+                transaction.update(sessionRef, { hostId: userId });
+                currentHostId = userId; // We are the new host
+              } else if (freshDoc.exists()) {
+                // Another user became host while we were trying
+                currentHostId = freshDoc.data().hostId;
+              }
+            });
+          } catch (e) {
+            console.error("Failed to claim host role:", e);
+          }
         }
+        
+        setHostId(currentHostId || null);
+        setIsHost(currentHostId === userId);
         
         // Sync player state, but ignore updates we just sent
         if (data.playerState && data.playerState.lastUpdatedBy !== userId) {
@@ -59,22 +72,24 @@ export function useWatchParty(sessionId: string, userId: string, setIsHost: (isH
 
   const updateRemoteState = useCallback(
     (newState: Partial<PlayerState>) => {
-      if (!sessionId) return;
+      if (!sessionId || !isHost) return;
       const sessionRef = doc(db, 'sessions', sessionId);
       const updatedState = { ...playerState, ...newState, lastUpdatedBy: userId };
       setPlayerState(updatedState); // optimistically update local state
       setDoc(sessionRef, { playerState: updatedState }, { merge: true });
     },
-    [sessionId, playerState, userId]
+    [sessionId, playerState, userId, isHost]
   );
   
   const setVideoUrl = useCallback((url: string) => {
+    if(!isHost) return;
     updateRemoteState({ videoUrl: url, isPlaying: false, currentTime: 0 });
-  }, [updateRemoteState]);
+  }, [updateRemoteState, isHost]);
 
   const setPlayerStateCallback = useCallback((newState: PlayerState) => {
+      if(!isHost) return;
       updateRemoteState(newState);
-  }, [updateRemoteState]);
+  }, [updateRemoteState, isHost]);
 
   return {
     playerState,

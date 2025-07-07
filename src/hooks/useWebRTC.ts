@@ -36,6 +36,7 @@ export function useWebRTC(sessionId: string, user: User) {
   const [isMuted, setIsMuted] = useState(true);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const { allParticipants } = useChat(sessionId, user);
+  const cleanupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const toggleMute = useCallback(() => {
     if (localStream) {
@@ -116,6 +117,11 @@ export function useWebRTC(sessionId: string, user: User) {
   useEffect(() => {
     if (!localStream || !sessionId || !user.id) return;
 
+    if (cleanupTimeoutRef.current) {
+      clearTimeout(cleanupTimeoutRef.current);
+      cleanupTimeoutRef.current = null;
+    }
+
     const myPeerRef = doc(db, 'sessions', sessionId, 'peers', user.id);
     setDoc(myPeerRef, { id: user.id, name: user.name });
     
@@ -125,18 +131,13 @@ export function useWebRTC(sessionId: string, user: User) {
       snapshot.docChanges().forEach(async (change) => {
         if (change.type === 'added') {
           const { from, offer } = change.doc.data();
-          
           const pc = createPeerConnection(from);
           if (pc.signalingState !== 'stable') return;
-
           await pc.setRemoteDescription(new RTCSessionDescription(offer));
-          
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-
           const answerRef = doc(db, 'sessions', sessionId, 'peers', from, 'answers', user.id);
           await setDoc(answerRef, { from: user.id, answer: answer.toJSON() });
-
           await deleteDoc(change.doc.ref);
         }
       });
@@ -175,35 +176,32 @@ export function useWebRTC(sessionId: string, user: User) {
     const cleanup = async () => {
       const myDoc = doc(db, 'sessions', sessionId, 'peers', user.id);
       const collections = ['offers', 'answers', 'iceCandidates'];
-      const subcollectionBatch = writeBatch(db);
-
+      const batch = writeBatch(db);
       for (const c of collections) {
         const snapshot = await getDocs(collection(myDoc, c));
-        snapshot.forEach((doc) => subcollectionBatch.delete(doc.ref));
+        snapshot.forEach((doc) => batch.delete(doc.ref));
       }
-      await subcollectionBatch.commit();
-      
+      await batch.commit();
       await deleteDoc(myDoc);
-
-      const peersRef = collection(db, 'sessions', sessionId, 'peers');
-      const peersSnapshot = await getDocs(peersRef);
-
-      if (peersSnapshot.empty) {
-        const messagesRef = collection(db, 'sessions', sessionId, 'messages');
-        const messagesSnapshot = await getDocs(messagesRef);
-        if (!messagesSnapshot.empty) {
-          const messagesBatch = writeBatch(db);
-          messagesSnapshot.docs.forEach((doc) => messagesBatch.delete(doc.ref));
-          await messagesBatch.commit();
-        }
-      }
     };
+
+    const handleBeforeUnload = () => {
+      cleanup();
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       unsubOffers();
       unsubAnswers();
       unsubIce();
-      cleanup();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+
+      // Delay the database cleanup to avoid strict mode issues
+      cleanupTimeoutRef.current = setTimeout(() => {
+        cleanup();
+        peerConnections.current.forEach(pc => pc.close());
+        peerConnections.current.clear();
+      }, 500);
     };
 
   }, [localStream, sessionId, user.id, user.name, createPeerConnection]);
