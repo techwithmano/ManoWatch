@@ -9,14 +9,12 @@ type VideoPlayerProps = {
   playerState: PlayerState;
   setPlayerState: (state: PlayerState) => void;
   isHost: boolean;
-  playerContainerRef: React.RefObject<HTMLDivElement>;
 };
 
 export default function VideoPlayer({
   playerState,
   setPlayerState,
   isHost,
-  playerContainerRef,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isSeeking = useRef(false);
@@ -79,7 +77,7 @@ export default function VideoPlayer({
 
   if (!playerState.videoUrl) {
     return (
-      <CardContent ref={playerContainerRef} className="flex-1 p-0 relative flex flex-col items-center justify-center bg-muted/20">
+      <CardContent className="flex-1 p-0 relative flex flex-col items-center justify-center bg-muted/20">
         <Film className="h-16 w-16 text-muted-foreground/50 mb-4" />
         <p className="text-muted-foreground">
           {isHost ? "Paste a video URL above to start the party!" : "Waiting for the host to select a video..."}
@@ -89,7 +87,7 @@ export default function VideoPlayer({
   }
 
   return (
-    <CardContent ref={playerContainerRef} className="flex-1 p-0 relative flex flex-col bg-black">
+    <CardContent className="flex-1 p-0 relative flex flex-col bg-black">
       <video
         ref={videoRef}
         className="w-full h-full"

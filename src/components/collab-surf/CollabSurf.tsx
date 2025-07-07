@@ -60,7 +60,7 @@ export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
           isMuted={isMuted}
           toggleMute={toggleMute}
         />
-        <div className="flex flex-col h-full bg-card rounded-lg shadow-lg border">
+        <div ref={playerContainerRef} className="flex flex-col h-full bg-card rounded-lg shadow-lg border">
           <WatchPartyControls
             setVideoUrl={setVideoUrl}
             playerState={playerState}
@@ -73,7 +73,6 @@ export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
             playerState={playerState}
             setPlayerState={setPlayerState}
             isHost={isHost}
-            playerContainerRef={playerContainerRef}
           />
         </div>
         <AudioPeers remoteStreams={remoteStreams} />
