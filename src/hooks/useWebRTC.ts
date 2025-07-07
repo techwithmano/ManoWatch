@@ -11,6 +11,7 @@ import {
   deleteDoc,
   writeBatch,
   getDocs,
+  query,
 } from 'firebase/firestore';
 import type { User } from '@/components/collab-surf/types';
 import { useChat } from './useChat';
@@ -32,7 +33,7 @@ export type RemoteStream = {
 export function useWebRTC(sessionId: string, user: User) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<RemoteStream[]>([]);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const { allParticipants } = useChat(sessionId, user);
 
@@ -95,7 +96,9 @@ export function useWebRTC(sessionId: string, user: User) {
     const startStream = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        stream.getAudioTracks().forEach(track => (track.enabled = false));
         setLocalStream(stream);
+        setIsMuted(true);
       } catch (error) {
         console.error("Error accessing media devices.", error);
       }
@@ -114,9 +117,11 @@ export function useWebRTC(sessionId: string, user: User) {
     if (!localStream || !sessionId || !user.id) return;
 
     const myPeerRef = doc(db, 'sessions', sessionId, 'peers', user.id);
+    setDoc(myPeerRef, { id: user.id, name: user.name });
     
     const offersRef = collection(myPeerRef, 'offers');
-    const unsubOffers = onSnapshot(offersRef, (snapshot) => {
+    const qOffers = query(offersRef);
+    const unsubOffers = onSnapshot(qOffers, (snapshot) => {
       snapshot.docChanges().forEach(async (change) => {
         if (change.type === 'added') {
           const { from, offer } = change.doc.data();
@@ -138,7 +143,8 @@ export function useWebRTC(sessionId: string, user: User) {
     });
 
     const answersRef = collection(myPeerRef, 'answers');
-    const unsubAnswers = onSnapshot(answersRef, (snapshot) => {
+    const qAnswers = query(answersRef);
+    const unsubAnswers = onSnapshot(qAnswers, (snapshot) => {
       snapshot.docChanges().forEach(async (change) => {
         if (change.type === 'added') {
           const { from, answer } = change.doc.data();
@@ -152,7 +158,8 @@ export function useWebRTC(sessionId: string, user: User) {
     });
 
     const iceCandidatesRef = collection(myPeerRef, 'iceCandidates');
-    const unsubIce = onSnapshot(iceCandidatesRef, (snapshot) => {
+    const qIce = query(iceCandidatesRef);
+    const unsubIce = onSnapshot(qIce, (snapshot) => {
       snapshot.docChanges().forEach(async (change) => {
         if (change.type === 'added') {
           const { from, candidate } = change.doc.data();
@@ -166,15 +173,30 @@ export function useWebRTC(sessionId: string, user: User) {
     });
 
     const cleanup = async () => {
-        const myDoc = doc(db, 'sessions', sessionId, 'peers', user.id);
-        const collections = ['offers', 'answers', 'iceCandidates'];
-        const batch = writeBatch(db);
+      const myDoc = doc(db, 'sessions', sessionId, 'peers', user.id);
+      const collections = ['offers', 'answers', 'iceCandidates'];
+      const subcollectionBatch = writeBatch(db);
 
-        for (const c of collections) {
-            const snapshot = await getDocs(collection(myDoc, c));
-            snapshot.forEach(doc => batch.delete(doc.ref));
+      for (const c of collections) {
+        const snapshot = await getDocs(collection(myDoc, c));
+        snapshot.forEach((doc) => subcollectionBatch.delete(doc.ref));
+      }
+      await subcollectionBatch.commit();
+      
+      await deleteDoc(myDoc);
+
+      const peersRef = collection(db, 'sessions', sessionId, 'peers');
+      const peersSnapshot = await getDocs(peersRef);
+
+      if (peersSnapshot.empty) {
+        const messagesRef = collection(db, 'sessions', sessionId, 'messages');
+        const messagesSnapshot = await getDocs(messagesRef);
+        if (!messagesSnapshot.empty) {
+          const messagesBatch = writeBatch(db);
+          messagesSnapshot.docs.forEach((doc) => messagesBatch.delete(doc.ref));
+          await messagesBatch.commit();
         }
-        await batch.commit();
+      }
     };
 
     return () => {
@@ -184,7 +206,7 @@ export function useWebRTC(sessionId: string, user: User) {
       cleanup();
     };
 
-  }, [localStream, sessionId, user.id, createPeerConnection]);
+  }, [localStream, sessionId, user.id, user.name, createPeerConnection]);
 
   useEffect(() => {
     if (!localStream) return;

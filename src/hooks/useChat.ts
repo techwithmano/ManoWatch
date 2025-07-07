@@ -9,15 +9,15 @@ import {
   query,
   serverTimestamp,
 } from 'firebase/firestore';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export function useChat(sessionId: string, user: User) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [participants, setParticipants] = useState<User[]>([]);
+  const [allParticipants, setAllParticipants] = useState<User[]>([]);
 
+  // Listener for messages
   useEffect(() => {
     if (!sessionId) return;
-
     const messagesCol = collection(db, 'sessions', sessionId, 'messages');
     const q = query(messagesCol, orderBy('timestamp', 'asc'));
 
@@ -29,18 +29,21 @@ export function useChat(sessionId: string, user: User) {
         timestamp: doc.data().timestamp?.toMillis() || Date.now(),
       }));
       setMessages(fetchedMessages);
-
-      const allAuthors = fetchedMessages.map((m) => m.author);
-      const uniqueParticipants = Array.from(new Map(allAuthors.map(p => [p.id, p])).values());
-      setParticipants(uniqueParticipants.filter(p => p.id !== user.id));
     });
 
     return () => unsubscribe();
-  }, [sessionId, user.id]);
+  }, [sessionId]);
 
-  const allParticipants = useMemo(() => {
-    return Array.from(new Map([user, ...participants].map(p => [p.id, p])).values());
-  }, [user, participants]);
+  // Listener for participants
+  useEffect(() => {
+    if (!sessionId) return;
+    const peersRef = collection(db, 'sessions', sessionId, 'peers');
+    const unsubscribe = onSnapshot(peersRef, (snapshot) => {
+      const currentParticipants = snapshot.docs.map(doc => doc.data() as User);
+      setAllParticipants(currentParticipants);
+    });
+    return () => unsubscribe();
+  }, [sessionId]);
 
 
   const sendMessage = useCallback(
@@ -56,5 +59,5 @@ export function useChat(sessionId: string, user: User) {
     [sessionId, user]
   );
 
-  return { messages, participants, allParticipants, sendMessage };
+  return { messages, allParticipants, sendMessage };
 }
