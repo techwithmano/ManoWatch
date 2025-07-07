@@ -10,6 +10,9 @@ export type Message = {
   timestamp: number;
 };
 
-export type BrowserState = {
-  url: string;
+export type PlayerState = {
+  videoUrl: string;
+  isPlaying: boolean;
+  currentTime: number;
+  lastUpdatedBy?: string; 
 };
