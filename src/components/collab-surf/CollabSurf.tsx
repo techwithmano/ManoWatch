@@ -11,6 +11,7 @@ import { useWatchParty } from '@/hooks/useWatchParty';
 import VideoPlayer from './VideoPlayer';
 import WatchPartyControls from './WatchPartyControls';
 import { useState } from 'react';
+import { useWebRTC } from '@/hooks/useWebRTC';
 
 type CollabSurfProps = {
   user: User;
@@ -20,11 +21,18 @@ type CollabSurfProps = {
 export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
   const [isHost, setIsHost] = useState(false);
   const { playerState, setPlayerState, setVideoUrl, hostId } = useWatchParty(sessionId, user.id, setIsHost);
+  const { remoteStreams, isMuted, toggleMute } = useWebRTC(sessionId, user);
 
   return (
     <div className="flex h-screen w-full bg-background font-body">
       <main className="flex-1 flex flex-col p-2 md:p-4 gap-4 overflow-hidden">
-        <ParticipantList user={user} sessionId={sessionId} hostId={hostId} />
+        <ParticipantList
+          user={user}
+          sessionId={sessionId}
+          hostId={hostId}
+          isMuted={isMuted}
+          toggleMute={toggleMute}
+        />
         <div className="flex flex-col h-full bg-card rounded-lg shadow-lg border">
           <WatchPartyControls
             setVideoUrl={setVideoUrl}
@@ -38,7 +46,7 @@ export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
             isHost={isHost}
           />
         </div>
-        <AudioPeers user={user} sessionId={sessionId} />
+        <AudioPeers remoteStreams={remoteStreams} />
       </main>
       <aside className="w-80 lg:w-96 bg-card border-l p-4 flex-col hidden md:flex">
         <Chat user={user} sessionId={sessionId} />

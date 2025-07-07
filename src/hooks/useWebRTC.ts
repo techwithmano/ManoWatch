@@ -9,10 +9,8 @@ import {
   addDoc,
   setDoc,
   deleteDoc,
-  getDocs,
   writeBatch,
-  query,
-  where,
+  getDocs,
 } from 'firebase/firestore';
 import type { User } from '@/components/collab-surf/types';
 import { useChat } from './useChat';
@@ -26,7 +24,7 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-type RemoteStream = {
+export type RemoteStream = {
   peerId: string;
   stream: MediaStream;
 };
@@ -34,8 +32,18 @@ type RemoteStream = {
 export function useWebRTC(sessionId: string, user: User) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<RemoteStream[]>([]);
+  const [isMuted, setIsMuted] = useState(false);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const { allParticipants } = useChat(sessionId, user);
+
+  const toggleMute = useCallback(() => {
+    if (localStream) {
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsMuted(prev => !prev);
+    }
+  }, [localStream]);
 
   const handleEndConnection = useCallback(async (peerId: string) => {
     peerConnections.current.get(peerId)?.close();
@@ -98,6 +106,7 @@ export function useWebRTC(sessionId: string, user: User) {
       localStream?.getTracks().forEach(track => track.stop());
       peerConnections.current.forEach(pc => pc.close());
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -121,7 +130,7 @@ export function useWebRTC(sessionId: string, user: User) {
           await pc.setLocalDescription(answer);
 
           const answerRef = doc(db, 'sessions', sessionId, 'peers', from, 'answers', user.id);
-          await setDoc(answerRef, { from: user.id, answer: answer });
+          await setDoc(answerRef, { from: user.id, answer: answer.toJSON() });
 
           await deleteDoc(change.doc.ref);
         }
@@ -207,5 +216,5 @@ export function useWebRTC(sessionId: string, user: User) {
 
   }, [allParticipants, localStream, user.id, sessionId, createPeerConnection, handleEndConnection]);
 
-  return { remoteStreams };
+  return { remoteStreams, isMuted, toggleMute };
 }

@@ -1,16 +1,13 @@
 
 'use client';
-import { useWebRTC } from '@/hooks/useWebRTC';
-import type { User } from './types';
 import { useEffect, useRef } from 'react';
+import type { RemoteStream } from '@/hooks/useWebRTC';
 
 type AudioPeersProps = {
-  user: User;
-  sessionId: string;
+  remoteStreams: RemoteStream[];
 };
 
-export default function AudioPeers({ user, sessionId }: AudioPeersProps) {
-  const { remoteStreams } = useWebRTC(sessionId, user);
+export default function AudioPeers({ remoteStreams }: AudioPeersProps) {
   const audioRefs = useRef<{[key: string]: HTMLAudioElement | null}>({});
 
   useEffect(() => {
