@@ -4,14 +4,15 @@
 import type { User } from './types';
 import { useChat } from '@/hooks/useChat';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Mic } from 'lucide-react';
+import { Crown, Mic } from 'lucide-react';
 
 type ParticipantListProps = {
   user: User;
   sessionId: string;
+  hostId: string | null;
 };
 
-export default function ParticipantList({ user, sessionId }: ParticipantListProps) {
+export default function ParticipantList({ user, sessionId, hostId }: ParticipantListProps) {
   const { allParticipants } = useChat(sessionId, user);
 
   return (
@@ -24,7 +25,11 @@ export default function ParticipantList({ user, sessionId }: ParticipantListProp
                         <AvatarFallback>{p.name.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                      <span className="text-sm font-medium sr-only md:not-sr-only">{p.name}{p.id === user.id ? ' (You)' : ''}</span>
-                    <Mic className="h-4 w-4 text-green-500" />
+                    {p.id === hostId ? (
+                      <Crown className="h-4 w-4 text-yellow-500" title="Host" />
+                    ) : (
+                      <Mic className="h-4 w-4 text-green-500" />
+                    )}
                 </div>
             ))}
         </div>

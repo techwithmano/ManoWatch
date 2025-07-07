@@ -7,7 +7,6 @@ import {
   onSnapshot,
   setDoc,
   serverTimestamp,
-  getDoc,
 } from 'firebase/firestore';
 import type { PlayerState } from '@/components/collab-surf/types';
 
@@ -19,6 +18,7 @@ const defaultPlayerState: PlayerState = {
 
 export function useWatchParty(sessionId: string, userId: string, setIsHost: (isHost: boolean) => void) {
   const [playerState, setPlayerState] = useState<PlayerState>(defaultPlayerState);
+  const [hostId, setHostId] = useState<string | null>(null);
   
   useEffect(() => {
     if (!sessionId) return;
@@ -27,13 +27,15 @@ export function useWatchParty(sessionId: string, userId: string, setIsHost: (isH
     const unsubscribe = onSnapshot(sessionRef, async (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
+        const currentHostId = data.hostId;
+        setHostId(currentHostId);
 
         // Determine host
-        if (!data.hostId) {
+        if (!currentHostId) {
           await setDoc(sessionRef, { hostId: userId }, { merge: true });
           setIsHost(true);
         } else {
-          setIsHost(data.hostId === userId);
+          setIsHost(currentHostId === userId);
         }
         
         // Sync player state, but ignore updates we just sent
@@ -48,6 +50,7 @@ export function useWatchParty(sessionId: string, userId: string, setIsHost: (isH
             playerState: defaultPlayerState
         });
         setIsHost(true);
+        setHostId(userId);
         setPlayerState(defaultPlayerState);
       }
     });
@@ -76,6 +79,7 @@ export function useWatchParty(sessionId: string, userId: string, setIsHost: (isH
   return {
     playerState,
     setVideoUrl,
-    setPlayerState: setPlayerStateCallback
+    setPlayerState: setPlayerStateCallback,
+    hostId,
   };
 }

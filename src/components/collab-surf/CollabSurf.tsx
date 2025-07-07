@@ -19,12 +19,12 @@ type CollabSurfProps = {
 
 export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
   const [isHost, setIsHost] = useState(false);
-  const { playerState, setPlayerState, setVideoUrl } = useWatchParty(sessionId, user.id, setIsHost);
+  const { playerState, setPlayerState, setVideoUrl, hostId } = useWatchParty(sessionId, user.id, setIsHost);
 
   return (
     <div className="flex h-screen w-full bg-background font-body">
       <main className="flex-1 flex flex-col p-2 md:p-4 gap-4 overflow-hidden">
-        <ParticipantList user={user} sessionId={sessionId} />
+        <ParticipantList user={user} sessionId={sessionId} hostId={hostId} />
         <div className="flex flex-col h-full bg-card rounded-lg shadow-lg border">
           <WatchPartyControls
             setVideoUrl={setVideoUrl}
