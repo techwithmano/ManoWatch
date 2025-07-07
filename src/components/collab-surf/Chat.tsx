@@ -1,6 +1,6 @@
 'use client';
 import { useChat } from '@/hooks/useChat';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,11 +27,14 @@ export default function Chat({ user, sessionId, browserState }: ChatProps) {
   const { messages, allParticipants: participants, sendMessage } = useChat(sessionId, user);
   const { toast } = useToast();
 
-  const allParticipants = [...participants];
-  const aiParticipantIsActive = messages.some(m => m.author.id === AI_USER.id);
-  if(aiParticipantIsActive && !allParticipants.some(p => p.id === AI_USER.id)) {
-    allParticipants.push(AI_USER);
-  }
+  const allParticipants = useMemo(() => {
+    const currentParticipants = [...participants];
+    const aiParticipantIsActive = messages.some(m => m.author.id === AI_USER.id);
+    if(aiParticipantIsActive && !currentParticipants.some(p => p.id === AI_USER.id)) {
+      currentParticipants.push(AI_USER);
+    }
+    return currentParticipants;
+  }, [messages, participants]);
 
 
   const handleSendMessage = async (e: React.FormEvent) => {

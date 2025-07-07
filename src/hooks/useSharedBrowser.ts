@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import type { BrowserState } from '@/components/collab-surf/types';
 
-const defaultUrl = 'https://www.google.com/search?q=popular+free+movie+streaming+sites';
+const defaultUrl = 'https://duckduckgo.com/?q=popular+free+movie+streaming+sites';
 
 export function useSharedBrowser(sessionId: string) {
   const [browserState, setBrowserState] = useState<BrowserState>({
@@ -44,7 +44,7 @@ export function useSharedBrowser(sessionId: string) {
       if (!sessionId || !url.trim()) return;
 
       let finalUrl = url.trim();
-      if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+      if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://') && !finalUrl.startsWith('about:')) {
         finalUrl = 'https://' + finalUrl;
       }
 
