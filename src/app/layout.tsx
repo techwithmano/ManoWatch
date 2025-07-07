@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'CollabSurf',
-  description: 'A collaborative shared browser website.',
+  title: 'Movie Night',
+  description: 'A shared browser for watching movies together.',
 };
 
 export default function RootLayout({

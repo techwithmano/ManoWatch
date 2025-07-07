@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import type { BrowserState } from '@/components/collab-surf/types';
 
-const defaultUrl = 'https://www.wikipedia.org/';
+const defaultUrl = 'https://www.google.com/search?q=popular+free+movie+streaming+sites';
 
 export function useSharedBrowser(sessionId: string) {
   const [browserState, setBrowserState] = useState<BrowserState>({
