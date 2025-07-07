@@ -2,15 +2,20 @@
 import { useRef } from 'react';
 import { CardContent } from '@/components/ui/card';
 import Toolbar from './Toolbar';
-import { useSharedBrowser } from '@/hooks/useSharedBrowser';
+import type { BrowserState } from './types';
 
 type SharedBrowserProps = {
   sessionId: string;
+  browserState: BrowserState;
+  navigate: (url: string) => void;
 };
 
-export default function SharedBrowser({ sessionId }: SharedBrowserProps) {
+export default function SharedBrowser({
+  sessionId,
+  browserState,
+  navigate,
+}: SharedBrowserProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { browserState, navigate } = useSharedBrowser(sessionId);
 
   const handleIframeLoad = () => {
     const iframe = iframeRef.current;

@@ -5,28 +5,77 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send } from 'lucide-react';
-import type { User } from './types';
+import { Loader2, Send, Sparkles } from 'lucide-react';
+import type { User, BrowserState } from './types';
+import { useToast } from '@/hooks/use-toast';
+import { answerQuestionAboutUrl } from '@/ai/flows/ai-chat-assistant';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type ChatProps = {
   user: User;
   sessionId: string;
+  browserState: BrowserState;
 };
 
-export default function Chat({ user, sessionId }: ChatProps) {
+export default function Chat({ user, sessionId, browserState }: ChatProps) {
   const [newMessage, setNewMessage] = useState('');
+  const [isProcessingAi, setIsProcessingAi] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { messages, participants, sendMessage } = useChat(sessionId, user);
+  const { toast } = useToast();
 
-  const allParticipants = [
-    user,
-    ...participants.filter((p) => p.name !== user.name),
-  ];
+  const allParticipants = Array.from(new Set([user, ...participants].map(p => p.name)))
+    .map(name => {
+        return [user, ...participants].find(p => p.name === name)!
+    });
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    sendMessage(newMessage);
+    const text = newMessage.trim();
+    if (!text || isProcessingAi) return;
+
+    sendMessage(text);
     setNewMessage('');
+
+    if (text.toLowerCase().startsWith('@ai')) {
+      setIsProcessingAi(true);
+      const question = text.substring(3).trim();
+      const messagesCol = collection(db, 'sessions', sessionId, 'messages');
+
+      const sendAiResponse = async (responseText: string) => {
+         await addDoc(messagesCol, {
+            author: 'AI Assistant',
+            text: responseText,
+            timestamp: serverTimestamp(),
+        });
+      };
+      
+      try {
+        if (!question) {
+          await sendAiResponse("Please provide a question after '@ai'.");
+          return;
+        }
+
+        if (!browserState.url || browserState.url === 'about:blank' || !browserState.url.startsWith('http')) {
+          await sendAiResponse("I can't answer questions until you navigate to a valid webpage.");
+          return;
+        }
+
+        const result = await answerQuestionAboutUrl({ url: browserState.url, question });
+        await sendAiResponse(result.answer);
+
+      } catch (error) {
+        console.error('AI Chat Error:', error);
+        toast({
+          variant: 'destructive',
+          title: 'AI Error',
+          description: 'The AI assistant could not be reached. Please try again later.',
+        });
+      } finally {
+        setIsProcessingAi(false);
+      }
+    }
   };
 
   useEffect(() => {
@@ -48,7 +97,9 @@ export default function Chat({ user, sessionId }: ChatProps) {
                 <div className="flex -space-x-2">
                 {allParticipants.map((p) => (
                     <Avatar key={p.name} className="border-2 border-card h-8 w-8">
-                      <AvatarFallback>{p.name.charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback className={p.name === 'AI Assistant' ? 'bg-accent/80' : ''}>
+                        {p.name === 'AI Assistant' ? <Sparkles className="w-4 h-4 text-accent-foreground"/> : p.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
                 ))}
                 </div>
@@ -64,13 +115,17 @@ export default function Chat({ user, sessionId }: ChatProps) {
             >
               {msg.author !== user.name && (
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback>{msg.author.charAt(0).toUpperCase()}</AvatarFallback>
+                   <AvatarFallback className={msg.author === 'AI Assistant' ? 'bg-accent/80' : ''}>
+                    {msg.author === 'AI Assistant' ? <Sparkles className="w-4 h-4 text-accent-foreground"/> : msg.author.charAt(0).toUpperCase()}
+                    </AvatarFallback>
                 </Avatar>
               )}
               <div
                 className={`max-w-[75%] rounded-lg p-3 text-sm ${
                   msg.author === user.name
                     ? 'bg-primary text-primary-foreground'
+                    : msg.author === 'AI Assistant' 
+                    ? 'bg-accent text-accent-foreground'
                     : 'bg-muted'
                 }`}
               >
@@ -91,11 +146,12 @@ export default function Chat({ user, sessionId }: ChatProps) {
         <Input
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type a message..."
+          placeholder="Ask @ai about the page..."
           autoComplete="off"
+          disabled={isProcessingAi}
         />
-        <Button type="submit" size="icon" aria-label="Send message">
-          <Send className="h-4 w-4" />
+        <Button type="submit" size="icon" aria-label="Send message" disabled={isProcessingAi}>
+          {isProcessingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </form>
     </div>
