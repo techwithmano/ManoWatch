@@ -1,46 +1,35 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useChat } from '@/hooks/useChat';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send } from 'lucide-react';
-import type { User, Message } from './types';
+import type { User } from './types';
 
 type ChatProps = {
   user: User;
+  sessionId: string;
 };
 
-const initialMessages: Message[] = [
-  { id: '1', author: 'System', text: 'Welcome to CollabSurf! Start browsing together.', timestamp: Date.now() - 2000 },
-  { id: '2', author: 'Alice', text: 'Hey everyone! What should we look at first?', timestamp: Date.now() - 1000 },
-];
-
-const participants: User[] = [{ name: 'Alice' }, { name: 'Bob' }];
-
-export default function Chat({ user }: ChatProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+export default function Chat({ user, sessionId }: ChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { messages, participants, sendMessage } = useChat(sessionId, user);
 
-  const allParticipants = [user, ...participants];
+  const allParticipants = [
+    user,
+    ...participants.filter((p) => p.name !== user.name),
+  ];
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim()) {
-      const msg: Message = {
-        id: crypto.randomUUID(),
-        author: user.name,
-        text: newMessage.trim(),
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, msg]);
-      setNewMessage('');
-    }
+    sendMessage(newMessage);
+    setNewMessage('');
   };
 
   useEffect(() => {
-    // Scroll to bottom when new messages are added
     if (scrollAreaRef.current) {
         const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
         if(viewport) {
@@ -73,7 +62,7 @@ export default function Chat({ user }: ChatProps) {
               key={msg.id}
               className={`flex items-start gap-3 ${msg.author === user.name ? 'justify-end' : ''}`}
             >
-              {msg.author !== user.name && msg.author !== 'System' && (
+              {msg.author !== user.name && (
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>{msg.author.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
@@ -82,10 +71,10 @@ export default function Chat({ user }: ChatProps) {
                 className={`max-w-[75%] rounded-lg p-3 text-sm ${
                   msg.author === user.name
                     ? 'bg-primary text-primary-foreground'
-                    : msg.author === 'System' ? 'text-center w-full bg-transparent text-muted-foreground' : 'bg-muted'
+                    : 'bg-muted'
                 }`}
               >
-                {msg.author !== 'System' && msg.author !== user.name && <p className="font-semibold mb-1">{msg.author}</p>}
+                {msg.author !== user.name && <p className="font-semibold mb-1">{msg.author}</p>}
                 <p>{msg.text}</p>
               </div>
               {msg.author === user.name && (

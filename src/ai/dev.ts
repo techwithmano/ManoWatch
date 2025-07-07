@@ -1,4 +1,4 @@
 import { config } from 'dotenv';
 config();
 
-import '@/ai/flows/summarize-selection.ts';
+import '@/ai/flows/summarize-url';

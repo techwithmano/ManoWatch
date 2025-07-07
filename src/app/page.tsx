@@ -17,5 +17,5 @@ export default function Home() {
     );
   }
 
-  return <CollabSurf user={user} />;
+  return <CollabSurf user={user} sessionId="default-session" />;
 }

@@ -8,3 +8,7 @@ export type Message = {
   text: string;
   timestamp: number;
 };
+
+export type BrowserState = {
+  url: string;
+};
