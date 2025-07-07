@@ -13,7 +13,7 @@ ManoWatch is a modern, real-time watch party web application that allows users t
 
 ## 🚀 Live Preview
 
-👉 [Visit ManoWatch Now](https://manowatch.vercel.app)
+👉 [Visit ManoWatch Now](https://mano-watch.vercel.app)
 
 ## 🛠️ Built With
 
