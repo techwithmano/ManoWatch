@@ -10,7 +10,7 @@ import AudioPeers from './AudioPeers';
 import { useWatchParty } from '@/hooks/useWatchParty';
 import VideoPlayer from './VideoPlayer';
 import WatchPartyControls from './WatchPartyControls';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useWebRTC } from '@/hooks/useWebRTC';
 
 type CollabSurfProps = {
@@ -22,6 +22,33 @@ export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
   const [isHost, setIsHost] = useState(false);
   const { playerState, setPlayerState, setVideoUrl, hostId } = useWatchParty(sessionId, user, setIsHost);
   const { remoteStreams, isMuted, toggleMute } = useWebRTC(sessionId, user);
+
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const handleToggleFullscreen = () => {
+    if (!playerContainerRef.current) return;
+
+    if (!document.fullscreenElement) {
+        playerContainerRef.current.requestFullscreen().catch(err => {
+            console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+  };
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+        setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
 
   return (
     <div className="flex h-screen w-full bg-background font-body">
@@ -39,11 +66,14 @@ export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
             playerState={playerState}
             setPlayerState={setPlayerState}
             isHost={isHost}
+            onToggleFullscreen={handleToggleFullscreen}
+            isFullscreen={isFullscreen}
           />
           <VideoPlayer
             playerState={playerState}
             setPlayerState={setPlayerState}
             isHost={isHost}
+            playerContainerRef={playerContainerRef}
           />
         </div>
         <AudioPeers remoteStreams={remoteStreams} />
