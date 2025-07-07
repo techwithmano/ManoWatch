@@ -20,10 +20,7 @@ export default function VideoFeeds({ user, sessionId }: VideoFeedsProps) {
   const { toast } = useToast();
   const { participants } = useChat(sessionId, user);
 
-    const allParticipants = Array.from(new Set([user, ...participants].map(p => p.name)))
-    .map(name => {
-        return [user, ...participants].find(p => p.name === name)!
-    });
+  const allParticipants = Array.from(new Map([user, ...participants].map(p => [p.id, p])).values());
 
   useEffect(() => {
     const getCameraPermission = async () => {
@@ -66,8 +63,8 @@ export default function VideoFeeds({ user, sessionId }: VideoFeedsProps) {
             </div>
 
             {/* Remote Users Placeholder */}
-            {allParticipants.filter(p => p.name !== user.name).map(p => (
-                 <div key={p.name} className="relative aspect-video bg-muted rounded-lg overflow-hidden border">
+            {allParticipants.filter(p => p.id !== user.id).map(p => (
+                 <div key={p.id} className="relative aspect-video bg-muted rounded-lg overflow-hidden border">
                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted">
                         <Avatar className="h-16 w-16">
                             <AvatarFallback className="text-2xl">{p.name.charAt(0).toUpperCase()}</AvatarFallback>

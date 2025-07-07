@@ -1,10 +1,11 @@
 export type User = {
+  id: string;
   name: string;
 };
 
 export type Message = {
   id: string;
-  author: string;
+  author: User;
   text: string;
   timestamp: number;
 };
@@ -12,8 +13,3 @@ export type Message = {
 export type BrowserState = {
   url: string;
 };
-
-export type Participant = {
-    id: string;
-    name: string;
-}

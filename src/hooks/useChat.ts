@@ -24,16 +24,15 @@ export function useChat(sessionId: string, user: User) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedMessages = snapshot.docs.map((doc) => ({
         id: doc.id,
-        author: doc.data().author,
+        author: doc.data().author as User,
         text: doc.data().text,
         timestamp: doc.data().timestamp?.toMillis() || Date.now(),
       }));
       setMessages(fetchedMessages);
 
-      const uniqueAuthors = [
-        ...new Set(fetchedMessages.map((m) => m.author)),
-      ];
-      setParticipants(uniqueAuthors.map((name) => ({ name })));
+      const allAuthors = fetchedMessages.map((m) => m.author);
+      const uniqueParticipants = Array.from(new Map(allAuthors.map(p => [p.id, p])).values());
+      setParticipants(uniqueParticipants);
     });
 
     return () => unsubscribe();
@@ -44,7 +43,7 @@ export function useChat(sessionId: string, user: User) {
       if (!text.trim() || !user) return;
       const messagesCol = collection(db, 'sessions', sessionId, 'messages');
       await addDoc(messagesCol, {
-        author: user.name,
+        author: { id: user.id, name: user.name },
         text: text.trim(),
         timestamp: serverTimestamp(),
       });

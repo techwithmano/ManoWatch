@@ -18,6 +18,8 @@ type ChatProps = {
   browserState: BrowserState;
 };
 
+const AI_USER: User = { name: 'AI Assistant', id: 'ai-assistant' };
+
 export default function Chat({ user, sessionId, browserState }: ChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const [isProcessingAi, setIsProcessingAi] = useState(false);
@@ -25,10 +27,12 @@ export default function Chat({ user, sessionId, browserState }: ChatProps) {
   const { messages, participants, sendMessage } = useChat(sessionId, user);
   const { toast } = useToast();
 
-  const allParticipants = Array.from(new Set([user, ...participants].map(p => p.name)))
-    .map(name => {
-        return [user, ...participants].find(p => p.name === name)!
-    });
+  const allParticipants = Array.from(new Map([user, ...participants].map(p => [p.id, p])).values());
+  const aiParticipantIsActive = messages.some(m => m.author.id === AI_USER.id);
+  if(aiParticipantIsActive && !allParticipants.some(p => p.id === AI_USER.id)) {
+    allParticipants.push(AI_USER);
+  }
+
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +49,7 @@ export default function Chat({ user, sessionId, browserState }: ChatProps) {
 
       const sendAiResponse = async (responseText: string) => {
          await addDoc(messagesCol, {
-            author: 'AI Assistant',
+            author: AI_USER,
             text: responseText,
             timestamp: serverTimestamp(),
         });
@@ -96,9 +100,9 @@ export default function Chat({ user, sessionId, browserState }: ChatProps) {
                 <p className="text-sm text-muted-foreground">Participants:</p>
                 <div className="flex -space-x-2">
                 {allParticipants.map((p) => (
-                    <Avatar key={p.name} className="border-2 border-card h-8 w-8">
-                      <AvatarFallback className={p.name === 'AI Assistant' ? 'bg-accent/80' : ''}>
-                        {p.name === 'AI Assistant' ? <Sparkles className="w-4 h-4 text-accent-foreground"/> : p.name.charAt(0).toUpperCase()}
+                    <Avatar key={p.id} className="border-2 border-card h-8 w-8">
+                      <AvatarFallback className={p.id === AI_USER.id ? 'bg-accent/80' : ''}>
+                        {p.id === AI_USER.id ? <Sparkles className="w-4 h-4 text-accent-foreground"/> : p.name.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                 ))}
@@ -111,30 +115,30 @@ export default function Chat({ user, sessionId, browserState }: ChatProps) {
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex items-start gap-3 ${msg.author === user.name ? 'justify-end' : ''}`}
+              className={`flex items-start gap-3 ${msg.author.id === user.id ? 'justify-end' : ''}`}
             >
-              {msg.author !== user.name && (
+              {msg.author.id !== user.id && (
                 <Avatar className="h-8 w-8">
-                   <AvatarFallback className={msg.author === 'AI Assistant' ? 'bg-accent/80' : ''}>
-                    {msg.author === 'AI Assistant' ? <Sparkles className="w-4 h-4 text-accent-foreground"/> : msg.author.charAt(0).toUpperCase()}
+                   <AvatarFallback className={msg.author.id === AI_USER.id ? 'bg-accent/80' : ''}>
+                    {msg.author.id === AI_USER.id ? <Sparkles className="w-4 h-4 text-accent-foreground"/> : msg.author.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                 </Avatar>
               )}
               <div
                 className={`max-w-[75%] rounded-lg p-3 text-sm ${
-                  msg.author === user.name
+                  msg.author.id === user.id
                     ? 'bg-primary text-primary-foreground'
-                    : msg.author === 'AI Assistant' 
+                    : msg.author.id === AI_USER.id 
                     ? 'bg-accent text-accent-foreground'
                     : 'bg-muted'
                 }`}
               >
-                {msg.author !== user.name && <p className="font-semibold mb-1">{msg.author}</p>}
+                {msg.author.id !== user.id && <p className="font-semibold mb-1">{msg.author.name}</p>}
                 <p>{msg.text}</p>
               </div>
-              {msg.author === user.name && (
+              {msg.author.id === user.id && (
                  <Avatar className="h-8 w-8">
-                  <AvatarFallback>{msg.author.charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>{msg.author.name.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
               )}
             </div>
