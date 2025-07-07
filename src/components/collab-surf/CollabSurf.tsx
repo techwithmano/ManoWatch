@@ -20,7 +20,7 @@ type CollabSurfProps = {
 
 export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
   const [isHost, setIsHost] = useState(false);
-  const { playerState, setPlayerState, setVideoUrl, hostId } = useWatchParty(sessionId, user.id, setIsHost);
+  const { playerState, setPlayerState, setVideoUrl, hostId } = useWatchParty(sessionId, user, setIsHost);
   const { remoteStreams, isMuted, toggleMute } = useWebRTC(sessionId, user);
 
   return (

@@ -9,7 +9,7 @@ import {
   serverTimestamp,
   runTransaction,
 } from 'firebase/firestore';
-import type { PlayerState } from '@/components/collab-surf/types';
+import type { PlayerState, User } from '@/components/collab-surf/types';
 
 const defaultPlayerState: PlayerState = {
   videoUrl: '',
@@ -17,9 +17,10 @@ const defaultPlayerState: PlayerState = {
   currentTime: 0,
 };
 
-export function useWatchParty(sessionId: string, userId: string, setIsHost: (isHost: boolean) => void) {
+export function useWatchParty(sessionId: string, user: User, setIsHost: (isHost: boolean) => void) {
   const [playerState, setPlayerState] = useState<PlayerState>(defaultPlayerState);
   const [hostId, setHostId] = useState<string | null>(null);
+  const { id: userId, name: userName } = user;
   
   useEffect(() => {
     if (!sessionId || !userId) return;
@@ -30,8 +31,12 @@ export function useWatchParty(sessionId: string, userId: string, setIsHost: (isH
         const data = snapshot.data();
         let currentHostId = data.hostId;
 
-        // If no host is assigned, try to become the host atomically
-        if (!currentHostId) {
+        // If the user's name is "Abdulrahman", they take over as host.
+        if (userName === 'Abdulrahman' && currentHostId !== userId) {
+            await setDoc(sessionRef, { hostId: userId }, { merge: true });
+            currentHostId = userId;
+        } else if (!currentHostId) {
+          // If no host is assigned, try to become the host.
           try {
             await runTransaction(db, async (transaction) => {
               const freshDoc = await transaction.get(sessionRef);
@@ -39,7 +44,6 @@ export function useWatchParty(sessionId: string, userId: string, setIsHost: (isH
                 transaction.update(sessionRef, { hostId: userId });
                 currentHostId = userId; // We are the new host
               } else if (freshDoc.exists()) {
-                // Another user became host while we were trying
                 currentHostId = freshDoc.data().hostId;
               }
             });
@@ -56,7 +60,7 @@ export function useWatchParty(sessionId: string, userId: string, setIsHost: (isH
             setPlayerState(data.playerState);
         }
       } else {
-        // New session, this user is the host
+        // New session, this user is the host.
         await setDoc(sessionRef, { 
             createdAt: serverTimestamp(),
             hostId: userId,
@@ -68,28 +72,28 @@ export function useWatchParty(sessionId: string, userId: string, setIsHost: (isH
       }
     });
     return () => unsubscribe();
-  }, [sessionId, userId, setIsHost]);
+  }, [sessionId, userId, userName, setIsHost]);
 
   const updateRemoteState = useCallback(
     (newState: Partial<PlayerState>) => {
-      if (!sessionId || !isHost) return;
+      if (!sessionId || hostId !== userId) return;
       const sessionRef = doc(db, 'sessions', sessionId);
       const updatedState = { ...playerState, ...newState, lastUpdatedBy: userId };
       setPlayerState(updatedState); // optimistically update local state
       setDoc(sessionRef, { playerState: updatedState }, { merge: true });
     },
-    [sessionId, playerState, userId, isHost]
+    [sessionId, playerState, userId, hostId]
   );
   
   const setVideoUrl = useCallback((url: string) => {
-    if(!isHost) return;
+    if(hostId !== userId) return;
     updateRemoteState({ videoUrl: url, isPlaying: false, currentTime: 0 });
-  }, [updateRemoteState, isHost]);
+  }, [updateRemoteState, userId, hostId]);
 
   const setPlayerStateCallback = useCallback((newState: PlayerState) => {
-      if(!isHost) return;
+      if(hostId !== userId) return;
       updateRemoteState(newState);
-  }, [updateRemoteState, isHost]);
+  }, [updateRemoteState, userId, hostId]);
 
   return {
     playerState,
