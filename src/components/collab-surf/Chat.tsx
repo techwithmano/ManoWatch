@@ -11,9 +11,10 @@ import type { User } from './types';
 type ChatProps = {
   user: User;
   sessionId: string;
+  showTitle?: boolean;
 };
 
-export default function Chat({ user, sessionId }: ChatProps) {
+export default function Chat({ user, sessionId, showTitle = true }: ChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { messages, allParticipants, sendMessage } = useChat(sessionId, user);
@@ -40,7 +41,7 @@ export default function Chat({ user, sessionId }: ChatProps) {
   return (
     <div className="flex flex-col h-full">
         <div className="pb-4">
-            <h2 className="text-xl font-bold font-headline">Chat</h2>
+            {showTitle && <h2 className="text-xl font-bold font-headline">Chat</h2>}
             <div className="flex items-center space-x-2 mt-2">
                 <p className="text-sm text-muted-foreground">Participants:</p>
                 <div className="flex -space-x-2">

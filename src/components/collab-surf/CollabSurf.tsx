@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { MessageSquare } from 'lucide-react';
 import Chat from './Chat';
 import type { User } from './types';
@@ -88,7 +88,10 @@ export default function CollabSurf({ user, sessionId }: CollabSurfProps) {
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[80%] p-4 flex flex-col">
-            <Chat user={user} sessionId={sessionId} />
+            <SheetHeader>
+              <SheetTitle>Chat</SheetTitle>
+            </SheetHeader>
+            <Chat user={user} sessionId={sessionId} showTitle={false} />
           </SheetContent>
         </Sheet>
       </div>
