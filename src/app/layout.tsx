@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'Movie Night',
+  title: 'ManoWatch',
   description: 'A shared browser for watching movies together.',
 };
 
